@@ -1,12 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../store/AppContext';
 import { getT } from '../i18n';
-import { ArrowLeft, ChevronLeft, ChevronRight, Save } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Save, Plus, Trash2 } from 'lucide-react';
 
 export const CalendarScreen: React.FC = () => {
   const { state, dispatch } = useApp();
   const t = getT(state.locale);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [notes, setNotes] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    if (state.activeNote && state.activeNote.type === 'calendar') {
+      try {
+        const parsed = JSON.parse(state.activeNote.content);
+        if (parsed.notes) {
+          setNotes(parsed.notes);
+        }
+      } catch (e) {
+        // Handle err
+      }
+    }
+  }, [state.activeNote]);
 
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
@@ -26,7 +41,7 @@ export const CalendarScreen: React.FC = () => {
     const payload = {
       id: state.activeNote ? state.activeNote.id : Date.now().toString(),
       title: state.activeNote ? state.activeNote.title : t.calendar + ' - ' + new Date().toLocaleTimeString(),
-      content: `Selected Month: ${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`,
+      content: JSON.stringify({ notes }),
       color: 'bg-red-100',
       type: 'calendar' as const,
       timestamp: Date.now().toString()
@@ -43,10 +58,7 @@ export const CalendarScreen: React.FC = () => {
 
   return (
     <div 
-      className={`relative flex flex-col w-full h-[100dvh] max-w-md mx-auto shadow-2xl overflow-hidden sm:h-auto sm:min-h-[800px] sm:rounded-[2.5rem] transition-colors ${state.theme === 'light' && !state.backgroundImage ? 'bg-gradient-to-br from-blue-50 via-white to-purple-50' : ''}`}
-      style={{
-        backgroundColor: state.theme === 'dark' ? `rgba(9, 9, 11, ${state.backgroundOpacity / 100})` : (state.backgroundImage ? `rgba(255, 255, 255, ${state.backgroundOpacity / 100})` : undefined),
-      }}
+      className={`relative flex flex-col w-full h-[100dvh] ${state.isComputerMode ? 'max-w-6xl' : 'max-w-md'} mx-auto shadow-2xl overflow-hidden sm:h-auto sm:min-h-[800px] sm:rounded-[2.5rem] transition-all duration-300 ${state.backgroundImage ? 'bg-white/80 dark:bg-black/80 backdrop-blur-sm' : (state.theme === 'light' ? 'bg-gradient-to-br from-blue-50 via-white to-purple-50' : 'bg-zinc-950')}`}
     >
       <header className="px-6 pt-12 pb-4 flex items-center justify-between z-10">
         <div className="flex items-center">
@@ -97,14 +109,72 @@ export const CalendarScreen: React.FC = () => {
               return (
                 <div 
                   key={day} 
-                  className={`aspect-square flex items-center justify-center rounded-full text-sm font-medium transition-colors cursor-pointer ${isToday ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
+                  onClick={() => setSelectedDay(day)}
+                  className={`aspect-square relative flex items-center justify-center rounded-full text-sm font-medium transition-colors cursor-pointer ${selectedDay === day ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 ring-2 ring-blue-500' : isToday ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
                 >
                   {day}
-                </div>
+                  {(notes[`${currentDate.getFullYear()}-${currentDate.getMonth()}-${day}`] && notes[`${currentDate.getFullYear()}-${currentDate.getMonth()}-${day}`].length > 0) && (
+                    <div className="absolute bottom-1 w-1 h-1 rounded-full bg-red-500"></div>
+                  )}
+                  </div>
               );
             })}
           </div>
         </div>
+        
+        {selectedDay && (
+          <div className="mt-4 flex-1 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-3xl p-4 shadow-sm border border-gray-100 dark:border-zinc-800 flex flex-col relative">
+            <div className="flex justify-between items-center mb-2 px-2">
+              <h3 className="font-bold text-gray-900 dark:text-white">
+                {state.locale === 'ar' ? 'ملاحظات' : 'Notes'} - {selectedDay} {monthNames[currentDate.getMonth()]}
+              </h3>
+              <button 
+                onClick={() => setNotes(prev => ({ ...prev, [`${currentDate.getFullYear()}-${currentDate.getMonth()}-${selectedDay}`]: [...(prev[`${currentDate.getFullYear()}-${currentDate.getMonth()}-${selectedDay}`] || []), ''] }))}
+                className="p-1.5 bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded-full hover:bg-blue-200 dark:hover:bg-blue-800/40"
+              >
+                <Plus size={18} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-2">
+              {!(notes[`${currentDate.getFullYear()}-${currentDate.getMonth()}-${selectedDay}`] && notes[`${currentDate.getFullYear()}-${currentDate.getMonth()}-${selectedDay}`].length > 0) ? (
+                <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
+                  {state.locale === 'ar' ? 'لا توجد ملاحظات، اضغط + للإضافة' : 'No notes. Press + to add.'}
+                </div>
+              ) : (
+                notes[`${currentDate.getFullYear()}-${currentDate.getMonth()}-${selectedDay}`].map((noteText, idx) => (
+                  <div key={idx} className="relative bg-gray-50 dark:bg-zinc-800/50 rounded-2xl p-2 border border-gray-100 dark:border-zinc-800">
+                    <textarea
+                      dir={['ar', 'fa', 'ur', 'he'].includes(state.locale) ? 'rtl' : 'ltr'}
+                      value={noteText}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setNotes(prev => {
+                          const arr = [...(prev[`${currentDate.getFullYear()}-${currentDate.getMonth()}-${selectedDay}`] || [])];
+                          arr[idx] = val;
+                          return { ...prev, [`${currentDate.getFullYear()}-${currentDate.getMonth()}-${selectedDay}`]: arr };
+                        });
+                      }}
+                      className="w-full bg-transparent resize-none outline-none text-gray-800 dark:text-gray-200 text-sm p-1 min-h-[60px]"
+                      placeholder={state.locale === 'ar' ? 'اكتب ملاحظة...' : 'Write note...'}
+                    />
+                    <button 
+                      onClick={() => {
+                        setNotes(prev => {
+                          const arr = [...(prev[`${currentDate.getFullYear()}-${currentDate.getMonth()}-${selectedDay}`] || [])];
+                          arr.splice(idx, 1);
+                          return { ...prev, [`${currentDate.getFullYear()}-${currentDate.getMonth()}-${selectedDay}`]: arr };
+                        });
+                      }}
+                      className="absolute top-2 right-2 text-red-400 hover:text-red-600 bg-red-50 dark:bg-red-900/20 p-1 rounded-full"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,9 +1,33 @@
 import React, { useState } from 'react';
 import { useApp } from '../store/AppContext';
-import { Plus, Search, Settings, Trash2, Edit3, X, Check, Circle, CheckCircle2, ListTodo, AlignLeft, Calculator, Clock, Table, CalendarDays, Palette } from 'lucide-react';
+import { Plus, Search, Settings, Trash2, Edit3, X, Check, Circle, CheckCircle2, ListTodo, AlignLeft, Calculator, Clock, Table, CalendarDays, Palette, QrCode, FunctionSquare } from 'lucide-react';
 import { Note } from '../types';
 import { getT } from '../i18n';
 import { SettingsModal } from './SettingsModal';
+
+const AVAILABLE_TAGS = ['Work', 'Personal', 'Shopping', 'Ideas', 'Important'];
+
+const getTagLabel = (tag: string, locale: string) => {
+  const arLabels: Record<string, string> = {
+    'Work': 'عمل',
+    'Personal': 'شخصي',
+    'Shopping': 'تسوق',
+    'Ideas': 'أفكار',
+    'Important': 'هام'
+  };
+  return locale === 'ar' ? (arLabels[tag] || tag) : tag;
+};
+
+const getTagColorClass = (tag: string) => {
+  const colors: Record<string, string> = {
+    'Work': 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-900/50',
+    'Personal': 'bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400 border-green-100 dark:border-green-900/50',
+    'Shopping': 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-900/50',
+    'Ideas': 'bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border-purple-100 dark:border-purple-900/50',
+    'Important': 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-900/50',
+  };
+  return colors[tag] || 'bg-gray-50 dark:bg-zinc-800 text-gray-600 dark:text-gray-400 border-gray-100 dark:border-zinc-700';
+};
 
 export const NotesScreen: React.FC = () => {
   const { state, dispatch } = useApp();
@@ -11,6 +35,7 @@ export const NotesScreen: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+  const [selectedFilterTag, setSelectedFilterTag] = useState<string | null>(null);
 
   const t = getT(state.locale);
 
@@ -19,7 +44,13 @@ export const NotesScreen: React.FC = () => {
     const matchesTitle = note.title.toLowerCase().includes(query);
     const matchesContent = note.content && note.content.toLowerCase().includes(query);
     const matchesTodos = note.todos?.some(todo => todo.text.toLowerCase().includes(query));
-    return matchesTitle || matchesContent || matchesTodos;
+    const matchesQuery = matchesTitle || matchesContent || matchesTodos;
+    
+    if (!matchesQuery) return false;
+    if (selectedFilterTag) {
+      return note.tags?.includes(selectedFilterTag) || false;
+    }
+    return true;
   });
 
   const handleSave = () => {
@@ -47,15 +78,12 @@ export const NotesScreen: React.FC = () => {
 
   return (
     <div 
-      className={`relative flex flex-col w-full h-[100dvh] max-w-md mx-auto shadow-2xl overflow-hidden sm:h-auto sm:min-h-[800px] sm:rounded-[2.5rem] transition-colors ${state.theme === 'light' && !state.backgroundImage ? 'bg-gradient-to-br from-blue-50 via-white to-purple-50' : ''}`}
-      style={{
-        backgroundColor: state.theme === 'dark' ? `rgba(9, 9, 11, ${state.backgroundOpacity / 100})` : (state.backgroundImage ? `rgba(255, 255, 255, ${state.backgroundOpacity / 100})` : undefined),
-      }}
+      className={`relative flex flex-col w-full h-[100dvh] ${state.isComputerMode ? 'max-w-6xl' : 'max-w-md'} mx-auto shadow-2xl overflow-hidden sm:h-auto sm:min-h-[800px] sm:rounded-[2.5rem] transition-all duration-300 ${state.backgroundImage ? 'bg-white/80 dark:bg-black/80 backdrop-blur-sm' : (state.theme === 'light' ? 'bg-gradient-to-br from-blue-50 via-white to-purple-50' : 'bg-zinc-950')}`}
     >
       
       {/* Header */}
-      <header className="px-6 pt-12 pb-4 z-10">
-        <div className="flex justify-between items-center mb-6">
+      <header className="px-6 pt-12 pb-4 z-10 flex flex-col gap-4">
+        <div className="flex justify-between items-center">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white drop-shadow-sm">{t.title}</h1>
           <button 
             onClick={() => setIsSettingsOpen(true)}
@@ -76,36 +104,78 @@ export const NotesScreen: React.FC = () => {
             placeholder={t.search}
             value={state.searchQuery}
             onChange={(e) => dispatch({ type: 'SET_SEARCH_QUERY', payload: e.target.value })}
-            style={{ paddingInlineStart: '2.5rem' }}
           />
+        </div>
+
+        {/* Tags Filter */}
+        <div className="flex gap-2 overflow-x-auto py-1 hide-scrollbar items-center">
+          <button
+            onClick={() => setSelectedFilterTag(null)}
+            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap flex-shrink-0 border ${
+              selectedFilterTag === null
+                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                : 'bg-white/60 dark:bg-zinc-900/60 text-gray-700 dark:text-gray-300 hover:bg-white/80 border-black/5 dark:border-white/5'
+            }`}
+          >
+            {state.locale === 'ar' ? 'الكل' : 'All'}
+          </button>
+          {AVAILABLE_TAGS.map(tag => {
+            const isSelected = selectedFilterTag === tag;
+            return (
+              <button
+                key={tag}
+                onClick={() => setSelectedFilterTag(tag)}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap flex-shrink-0 border ${
+                  isSelected
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                    : `${getTagColorClass(tag)}`
+                }`}
+              >
+                {getTagLabel(tag, state.locale)}
+              </button>
+            );
+          })}
         </div>
       </header>
 
-      {/* Notes List */}
-      <main className="flex-1 overflow-y-auto p-4 space-y-4 pb-24 z-10">
+      <main className={`flex-1 overflow-y-auto px-6 pb-32 z-10 hide-scrollbar ${state.isComputerMode ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 space-y-0 content-start' : 'space-y-4'}`}>
         {filteredNotes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-600 dark:text-gray-400 text-center px-8 mt-12 backdrop-blur-sm p-6 rounded-3xl bg-white/40 dark:bg-black/40">
-            <Edit3 size={48} className="mb-4 opacity-50 text-blue-500" />
-            <p className="text-lg font-medium">{t.empty}</p>
+          <div className="flex flex-col items-center justify-center h-48 text-gray-400">
+            <Edit3 size={48} className="mb-4 opacity-50" />
+            <p className="text-lg font-bold">{state.searchQuery ? t.search : t.empty}</p>
           </div>
         ) : (
           filteredNotes.map(note => (
             <div 
-              key={note.id} 
+              key={note.id}
               onClick={() => {
-                if (['calculator', 'spreadsheet', 'drawing', 'calendar', 'clock'].includes(note.type)) {
-                  dispatch({ type: 'SET_ACTIVE_NOTE', payload: note });
-                  dispatch({ type: 'SET_ACTIVE_APP', payload: note.type as any });
-                } else {
-                  setEditingNote(note);
-                  setIsModalOpen(true);
-                }
+                dispatch({ type: 'SET_ACTIVE_NOTE', payload: note });
+                if (note.type === 'calculator') dispatch({ type: 'SET_ACTIVE_APP', payload: 'calculator' });
+                else if (note.type === 'clock') dispatch({ type: 'SET_ACTIVE_APP', payload: 'clock' });
+                else if (note.type === 'drawing') dispatch({ type: 'SET_ACTIVE_APP', payload: 'drawing' });
+                else if (note.type === 'spreadsheet') dispatch({ type: 'SET_ACTIVE_APP', payload: 'spreadsheet' });
+                else if (note.type === 'calendar') dispatch({ type: 'SET_ACTIVE_APP', payload: 'calendar' });
               }}
-              className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md p-5 rounded-3xl shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-white/50 dark:border-white/10"
+              className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md p-5 rounded-3xl shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-white/50 dark:border-white/10 flex flex-col justify-between"
             >
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 line-clamp-1">
-                {note.title || 'بدون عنوان'}
-              </h3>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 line-clamp-1">
+                  {note.title || 'بدون عنوان'}
+                </h3>
+                
+                {note.tags && note.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {note.tags.map(tag => (
+                      <span 
+                        key={tag} 
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${getTagColorClass(tag)}`}
+                      >
+                        {getTagLabel(tag, state.locale)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
               
               {note.type === 'todo' && note.todos ? (
                 <div className="space-y-2 mt-3">
@@ -249,23 +319,7 @@ export const NotesScreen: React.FC = () => {
               <X size={28} />
             </button>
             
-            {/* Note Type Toggle */}
-            <div className="flex bg-gray-100 dark:bg-zinc-800 p-1 rounded-xl">
-              <button 
-                onClick={() => setEditingNote({ ...editingNote, type: 'text' })}
-                className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-all ${editingNote.type === 'text' ? 'bg-white dark:bg-zinc-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
-              >
-                <AlignLeft size={16} />
-                <span className="hidden sm:inline">{t.textMode}</span>
-              </button>
-              <button 
-                onClick={() => setEditingNote({ ...editingNote, type: 'todo', todos: editingNote.todos || [] })}
-                className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-all ${editingNote.type === 'todo' ? 'bg-white dark:bg-zinc-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
-              >
-                <ListTodo size={16} />
-                <span className="hidden sm:inline">{t.todoMode}</span>
-              </button>
-            </div>
+{/* Removed Note Type Toggle */}
 
             <button 
               onClick={handleSave}
@@ -283,6 +337,38 @@ export const NotesScreen: React.FC = () => {
               onChange={(e) => setEditingNote({ ...editingNote, title: e.target.value })}
               className="w-full text-3xl font-bold text-gray-900 dark:text-white bg-transparent border-0 focus:ring-0 p-0 placeholder:text-gray-300 dark:placeholder:text-zinc-700 outline-none"
             />
+            
+            {/* Tag Selection */}
+            <div className="flex flex-col gap-2 pb-2 border-b border-gray-200 dark:border-zinc-800">
+              <span className="text-xs font-bold text-gray-500 dark:text-gray-400">
+                {state.locale === 'ar' ? 'الوسوم (تصنيف)' : 'Tags (Categorize)'}
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {AVAILABLE_TAGS.map(tag => {
+                  const isSelected = editingNote.tags?.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => {
+                        const currentTags = editingNote.tags || [];
+                        const nextTags = isSelected
+                          ? currentTags.filter(t => t !== tag)
+                          : [...currentTags, tag];
+                        setEditingNote({ ...editingNote, tags: nextTags });
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                        isSelected
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                          : `${getTagColorClass(tag)} opacity-60 hover:opacity-100`
+                      }`}
+                    >
+                      {getTagLabel(tag, state.locale)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             
             {editingNote.type === 'text' ? (
               <textarea

@@ -42,7 +42,7 @@ export const GameScreen: React.FC = () => {
   };
 
   return (
-    <div className={`relative flex flex-col w-full h-[100dvh] max-w-md mx-auto shadow-2xl overflow-hidden sm:h-auto sm:min-h-[800px] sm:rounded-[2.5rem] transition-colors ${state.theme === 'light' ? 'bg-gradient-to-br from-yellow-50 via-white to-orange-50 text-gray-900' : 'bg-zinc-950 text-white'}`}>
+    <div className={`relative flex flex-col w-full h-[100dvh] ${state.isComputerMode ? 'max-w-6xl' : 'max-w-md'} mx-auto shadow-2xl overflow-hidden sm:h-auto sm:min-h-[800px] sm:rounded-[2.5rem] transition-all duration-300 ${state.backgroundImage ? 'bg-white/80 dark:bg-black/80 backdrop-blur-sm' : (state.theme === 'light' ? 'bg-gradient-to-br from-yellow-50 via-white to-orange-50 text-gray-900' : 'bg-zinc-950 text-white')}`}>
       <header className="px-6 pt-12 pb-2 flex items-center justify-between z-10 bg-white/50 dark:bg-black/20 backdrop-blur-md">
         <button onClick={() => dispatch({ type: 'SET_ACTIVE_APP', payload: 'notes' })} className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10">
           <ArrowLeft size={28} />

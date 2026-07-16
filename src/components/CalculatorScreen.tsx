@@ -12,7 +12,14 @@ export const CalculatorScreen: React.FC = () => {
   const [result, setResult] = useState('0');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [history, setHistory] = useState<{expr: string, res: string}[]>([]);
+  const [history, setHistory] = useState<{expr: string, res: string}[]>(() => {
+    const saved = localStorage.getItem('calculatorHistory');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('calculatorHistory', JSON.stringify(history));
+  }, [history]);
 
   useEffect(() => {
     if (state.activeNote && state.activeNote.type === 'calculator') {
@@ -26,6 +33,35 @@ export const CalculatorScreen: React.FC = () => {
       }
     }
   }, [state.activeNote]);
+
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't interfere if settings modal is open or a form element is focused
+      if (document.activeElement?.tagName === 'INPUT' || isSettingsOpen) return;
+      
+      const key = e.key;
+      if (/[0-9.]/.test(key)) {
+        handleInput(key);
+      } else if (key === '+' || key === '-' || key === '%') {
+        handleInput(key);
+      } else if (key === '*') {
+        handleInput('×');
+      } else if (key === '/') {
+        e.preventDefault();
+        handleInput('÷');
+      } else if (key === 'Enter' || key === '=') {
+        e.preventDefault();
+        handleCalculate();
+      } else if (key === 'Backspace') {
+        handleDelete();
+      } else if (key === 'Escape' || key === 'Delete' || key.toLowerCase() === 'c') {
+        handleClear();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [expression, isSettingsOpen]);
 
   const handleInput = (val: string) => {
     setExpression(prev => prev + val);
@@ -42,11 +78,22 @@ export const CalculatorScreen: React.FC = () => {
 
   const handleCalculate = () => {
     try {
-      const sanitized = expression.replace(/×/g, '*').replace(/÷/g, '/').replace(/%/g, '/100');
+      let sanitized = expression.replace(/×/g, '*').replace(/÷/g, '/');
+      
+      // Smart percentage parsing
+      // X + Y% -> X + (X * Y / 100)
+      sanitized = sanitized.replace(/(\d+(?:\.\d+)?)\s*([\+\-])\s*(\d+(?:\.\d+)?)%/g, '($1$2($1*($3/100)))');
+      // A * B% -> A * (B / 100)
+      sanitized = sanitized.replace(/(\d+(?:\.\d+)?)%/g, '($1/100)');
+      
       if (!sanitized) return;
       const res = new Function(`return ${sanitized}`)();
-      setResult(String(res));
-      setHistory(prev => [{ expr: expression, res: String(res) }, ...prev].slice(0, 20));
+      
+      // Fix typical floating point issues
+      const finalRes = Math.round(res * 100000000) / 100000000;
+      
+      setResult(String(finalRes));
+      setHistory(prev => [{ expr: expression, res: String(finalRes) }, ...prev]);
     } catch (e) {
       setResult('Error');
     }
@@ -97,10 +144,7 @@ export const CalculatorScreen: React.FC = () => {
 
   return (
     <div 
-      className={`relative flex flex-col w-full h-[100dvh] max-w-md mx-auto shadow-2xl overflow-hidden sm:h-auto sm:min-h-[800px] sm:rounded-[2.5rem] transition-colors ${state.theme === 'light' && !state.backgroundImage ? 'bg-gradient-to-br from-blue-50 via-white to-purple-50' : ''}`}
-      style={{
-        backgroundColor: state.theme === 'dark' ? `rgba(9, 9, 11, ${state.backgroundOpacity / 100})` : (state.backgroundImage ? `rgba(255, 255, 255, ${state.backgroundOpacity / 100})` : undefined),
-      }}
+      className={`relative flex flex-col w-full h-[100dvh] ${state.isComputerMode ? 'max-w-6xl' : 'max-w-md'} mx-auto shadow-2xl overflow-hidden sm:h-auto sm:min-h-[800px] sm:rounded-[2.5rem] transition-all duration-300 ${state.backgroundImage ? 'bg-white/80 dark:bg-black/80 backdrop-blur-sm' : (state.theme === 'light' ? 'bg-gradient-to-br from-blue-50 via-white to-purple-50' : 'bg-zinc-950')}`}
     >
       <header className="px-4 sm:px-6 pt-10 sm:pt-12 pb-2 flex items-center justify-between z-10">
         <div className="flex items-center">
@@ -137,7 +181,7 @@ export const CalculatorScreen: React.FC = () => {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col justify-end p-4 sm:p-6 z-10 calculator-container relative">
+      <div className={`flex-1 flex flex-col justify-end p-2 sm:p-6 z-10 calculator-container relative ${state.theme === 'light' ? 'bg-gradient-to-b from-gray-50/50 to-gray-100/50' : ''}`}>
         {showHistory && (
           <div className="absolute top-0 left-0 right-0 bottom-full h-full mb-4 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md rounded-3xl p-4 overflow-y-auto flex flex-col gap-3 border border-gray-200 dark:border-zinc-800 shadow-lg z-20 transition-all">
             <h3 className="font-bold text-gray-900 dark:text-white mb-2">History</h3>
@@ -155,16 +199,16 @@ export const CalculatorScreen: React.FC = () => {
         )}
 
         <div className="flex flex-col items-end justify-end mb-4 sm:mb-8 min-h-[100px] sm:min-h-[120px] break-all w-full text-right px-2">
-          <div className="text-gray-500 dark:text-gray-400 text-xl sm:text-3xl tracking-wider mb-1 sm:mb-2 font-mono w-full">{expression}</div>
+          <div className="text-gray-900/70 dark:text-gray-100/70 text-xl sm:text-3xl tracking-wider mb-1 sm:mb-2 font-mono w-full font-semibold">{expression}</div>
           <div className="text-5xl sm:text-7xl font-bold tracking-tight text-gray-900 dark:text-white w-full">{result}</div>
         </div>
 
-        <div className="grid grid-cols-4 gap-2 sm:gap-3 bg-white/40 dark:bg-black/20 p-3 sm:p-4 rounded-[2rem] shadow-sm border border-gray-100 dark:border-zinc-800">
+        <div className="grid grid-cols-4 gap-1.5 sm:gap-3 bg-white/40 dark:bg-black/20 p-2 sm:p-4 rounded-3xl sm:rounded-[2rem] shadow-sm border border-gray-100 dark:border-zinc-800">
           {buttons.map((btn, idx) => (
             <button
               key={idx}
               onClick={btn.action}
-              className={`h-14 sm:h-16 text-lg sm:text-2xl font-bold rounded-2xl transition-all active:scale-95 flex items-center justify-center
+              className={`h-12 sm:h-16 text-lg sm:text-2xl font-bold rounded-xl sm:rounded-2xl transition-all active:scale-95 flex items-center justify-center
                 ${btn.type === 'num' ? 'bg-white dark:bg-zinc-800 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-zinc-700 shadow-sm border border-gray-100 dark:border-zinc-700' : ''}
                 ${btn.type === 'action' ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 shadow-sm' : ''}
                 ${btn.type === 'op' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 shadow-sm' : ''}

@@ -1,6 +1,6 @@
 export type Theme = 'light' | 'dark';
-export type Locale = 'ar' | 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'ru' | 'zh' | 'ja' | 'ko' | 'hi' | 'tr' | 'nl' | 'pl' | 'sv' | 'vi' | 'th' | 'id' | 'uk' | 'fa' | 'ur' | 'bn' | 'sw' | 'ms' | 'el' | 'he' | 'da' | 'fi' | 'no' | 'cs' | 'hu' | 'ro' | 'sk';
-export type AppType = 'notes' | 'calculator' | 'clock' | 'drawing' | 'spreadsheet' | 'calendar' | 'game';
+export type Locale = 'ar' | 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'ru' | 'zh' | 'ja' | 'ko' | 'hi' | 'tr' | 'nl' | 'pl' | 'sv' | 'vi' | 'th' | 'id' | 'uk' | 'fa' | 'ur' | 'bn' | 'sw' | 'ms' | 'el' | 'da' | 'fi' | 'no' | 'cs' | 'hu' | 'ro' | 'sk';
+export type AppType = 'notes' | 'calculator' | 'clock' | 'drawing' | 'spreadsheet' | 'calendar' | 'game' | 'qr' | 'sci_calc';
 export type NoteType = 'text' | 'todo' | 'drawing' | 'spreadsheet' | 'calculator' | 'calendar' | 'clock';
 
 export interface TodoItem {
@@ -17,6 +17,7 @@ export interface Note {
   type: NoteType;
   todos?: TodoItem[];
   color?: string;
+  tags?: string[];
 }
 
 export interface AppState {
@@ -29,6 +30,7 @@ export interface AppState {
   backgroundPosition: string;
   activeApp: AppType;
   activeNote: Note | null;
+  isComputerMode?: boolean;
 }
 
 export type Action =
@@ -42,5 +44,6 @@ export type Action =
   | { type: 'SET_BACKGROUND_OPACITY'; payload: number }
   | { type: 'SET_BACKGROUND_POSITION'; payload: string }
   | { type: 'SET_ACTIVE_APP'; payload: AppType }
-  | { type: 'SET_ACTIVE_NOTE'; payload: Note | null };
+  | { type: 'SET_ACTIVE_NOTE'; payload: Note | null }
+  | { type: 'SET_COMPUTER_MODE'; payload: boolean };
 
